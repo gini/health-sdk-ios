@@ -26,6 +26,8 @@ public class PaymentReviewModel: NSObject {
     var onNoAppsErrorHandling: (_ error: GiniHealthError) -> Void = { _ in }
     
     var onCreatePaymentRequestErrorHandling: () -> Void = {}
+    
+    var onBankSelection: (_ provider: PaymentProvider) -> Void = { _ in }
 
     public var document: Document {
         didSet {
@@ -81,8 +83,8 @@ public class PaymentReviewModel: NSObject {
         return PageCollectionCellViewModel(preview: previewImage)
     }
 
-    func checkIfAnyPaymentProviderAvailiable() {
-        healthSDK.checkIfAnyPaymentProviderAvailiable {[weak self] result in
+    func checkIfAnyPaymentProviderAvailable() {
+        healthSDK.checkIfAnyPaymentProviderAvailable {[weak self] result in
             switch result {
             case let .success(providers):
                 self?.onPaymentProvidersFetched(providers)
