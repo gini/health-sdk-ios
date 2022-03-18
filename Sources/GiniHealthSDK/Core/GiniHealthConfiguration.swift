@@ -61,6 +61,11 @@ public final class GiniHealthConfiguration: NSObject {
     @objc public var payButtonCornerRadius: CGFloat = 6.0
     
     /**
+     Sets the font of the pay button title on the payment review screen
+     */
+    @objc public var payButtonTitleFont: UIFont = UIFont.systemFont(ofSize: 14,
+                                                                    weight: .bold)
+    /**
      Sets the corner radius of the payment input fields on the payment review screen
      */
     @objc public var paymentInputFieldCornerRadius: CGFloat = 6.0
@@ -154,6 +159,11 @@ public final class GiniHealthConfiguration: NSObject {
      Set to `true` to show a close button on the payment review screen.
      */
     @objc public var showPaymentReviewCloseButton = false
+    
+    /**
+     Sets the status bar style on the payment review screen. Only if `View controller-based status bar appearance` = `YES` in info.plist.
+     */
+    @objc public var paymentReviewStatusBarStyle: UIStatusBarStyle = .default
     
     // MARK: - Bank selection screen
     

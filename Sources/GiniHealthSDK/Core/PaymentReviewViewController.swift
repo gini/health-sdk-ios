@@ -186,6 +186,10 @@ public final class PaymentReviewViewController: UIViewController, UIGestureRecog
         inputContainer.roundCorners(corners: [.topLeft, .topRight], radius: 12)
     }
     
+    public override var preferredStatusBarStyle: UIStatusBarStyle {
+        return giniHealthConfiguration.paymentReviewStatusBarStyle
+    }
+    
     // MARK: - congifureUI
 
     fileprivate func configureUI() {
@@ -300,7 +304,7 @@ public final class PaymentReviewViewController: UIViewController, UIGestureRecog
         payButton.isEnabled = false
         payButton.disabledTextColor = UIColor.from(giniColor: giniHealthConfiguration.payButtonDisabledTextColor)
         payButton.layer.cornerRadius = giniHealthConfiguration.payButtonCornerRadius
-        payButton.titleLabel?.font = giniHealthConfiguration.customFont.regular
+        payButton.titleLabel?.font = giniHealthConfiguration.payButtonTitleFont
         payButton.setTitle( NSLocalizedStringPreferredFormat("ginihealth.reviewscreen.next.button.title",
                                                              comment: "next button title"), for: .normal)
     }
@@ -345,15 +349,10 @@ public final class PaymentReviewViewController: UIViewController, UIGestureRecog
     // MARK: - Input fields configuration
 
     fileprivate func applyDefaultStyle(_ field: UITextField) {
-        if #available(iOS 13.0, *) {
-            field.borderStyle = .roundedRect
-            field.overrideUserInterfaceStyle = .dark
-        } else {
-            field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: field.frame.height))
-            field.leftViewMode = .always
-            field.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: field.frame.height))
-            field.rightViewMode = .always
-        }
+        field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: field.frame.height))
+        field.leftViewMode = .always
+        field.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: field.frame.height))
+        field.rightViewMode = .always
         field.layer.cornerRadius = self.giniHealthConfiguration.paymentInputFieldCornerRadius
         field.layer.borderWidth = giniHealthConfiguration.paymentInputFieldBorderWidth
         field.backgroundColor = UIColor.from(giniColor: giniHealthConfiguration.paymentInputFieldBackgroundColor)
