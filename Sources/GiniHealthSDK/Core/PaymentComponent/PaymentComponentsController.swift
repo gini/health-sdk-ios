@@ -16,10 +16,21 @@ public protocol PaymentComponentsControllerProtocol: AnyObject {
     func didFetchedPaymentProviders()
 }
 
+protocol PaymentComponentsProtocol {
+    var isLoading: Bool { get set }
+    var selectedPaymentProvider: PaymentProvider? { get set }
+    func loadPaymentProviders()
+    func checkIfDocumentIsPayable(docId: String, completion: @escaping (Result<Bool, GiniHealthError>) -> Void)
+    func paymentView(documentId: String) -> UIView
+    func bankSelectionBottomSheet() -> UIViewController
+    func loadPaymentReviewScreenFor(documentID: String, trackingDelegate: GiniHealthTrackingDelegate?, completion: @escaping (UIViewController?, GiniHealthError?) -> Void)
+    func paymentInfoViewController() -> UIViewController
+}
+
 /**
  The `PaymentComponentsController` class allows control over the payment components.
  */
-public final class PaymentComponentsController: NSObject {
+public final class PaymentComponentsController: PaymentComponentsProtocol {
     /// handling the Payment Component Controller delegate
     public weak var delegate: PaymentComponentsControllerProtocol?
     /// handling the Payment Component view delegate
@@ -28,8 +39,8 @@ public final class PaymentComponentsController: NSObject {
     public weak var bottomViewDelegate: PaymentProvidersBottomViewProtocol?
 
     private var giniHealth: GiniHealth
+    private let giniHealthConfiguration = GiniHealthConfiguration.shared
     private var paymentProviders: PaymentProviders = []
-    private var installedPaymentProviders: PaymentProviders = []
     
     /// storing the current selected payment provider
     public var selectedPaymentProvider: PaymentProvider?
@@ -53,19 +64,6 @@ public final class PaymentComponentsController: NSObject {
      */
     public init(giniHealth: GiniHealth) {
         self.giniHealth = giniHealth
-        super.init()
-        setupListeners()
-    }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
-    private func setupListeners() {
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(willEnterForeground),
-                                               name: UIApplication.willEnterForegroundNotification,
-                                               object: nil)
     }
     
     /**
@@ -73,7 +71,7 @@ public final class PaymentComponentsController: NSObject {
      - Returns: a Payment Provider object.
      */
     private func defaultInstalledPaymentProvider() -> PaymentProvider? {
-        savedPaymentProvider() ?? installedPaymentProviders.first
+        savedPaymentProvider()
     }
     
     /**
@@ -87,29 +85,10 @@ public final class PaymentComponentsController: NSObject {
             switch result {
             case let .success(paymentProviders):
                 self?.paymentProviders = paymentProviders
-                self?.checkInstalledPaymentProviders()
                 self?.selectedPaymentProvider = self?.defaultInstalledPaymentProvider()
                 self?.delegate?.didFetchedPaymentProviders()
             case let .failure(error):
                 print("Couldn't load payment providers: \(error.localizedDescription)")
-            }
-        }
-    }
-    
-    @objc
-    private func willEnterForeground() {
-        DispatchQueue.main.async {
-            if !self.checkPaymentProviderIsInstalled(paymentProvider: self.selectedPaymentProvider) {
-                self.loadPaymentProviders()
-            }
-        }
-    }
-    
-    private func checkInstalledPaymentProviders() {
-        installedPaymentProviders = []
-        for paymentProvider in paymentProviders {
-            if checkPaymentProviderIsInstalled(paymentProvider: paymentProvider) {
-                self.installedPaymentProviders.append(paymentProvider)
             }
         }
     }
@@ -129,7 +108,7 @@ public final class PaymentComponentsController: NSObject {
             do {
                 let decoder = JSONDecoder()
                 let paymentProvider = try decoder.decode(PaymentProvider.self, from: data)
-                if self.installedPaymentProviders.contains(where: { $0.id == paymentProvider.id }) {
+                if self.paymentProviders.contains(where: { $0.id == paymentProvider.id }) {
                     return paymentProvider
                 }
             } catch {
@@ -137,13 +116,6 @@ public final class PaymentComponentsController: NSObject {
             }
         }
         return nil
-    }
-    
-    private func checkPaymentProviderIsInstalled(paymentProvider: PaymentProvider?) -> Bool {
-        if let appSchemeIOS = paymentProvider?.appSchemeIOS, let url = URL(string: appSchemeIOS) {
-            return UIApplication.shared.canOpenURL(url)
-        }
-        return false
     }
 
     /**
@@ -166,7 +138,7 @@ public final class PaymentComponentsController: NSObject {
      */
     public func paymentView(documentId: String) -> UIView {
         paymentComponentView = PaymentComponentView()
-        let paymentComponentViewModel = PaymentComponentViewModel(paymentProvider: selectedPaymentProvider)
+        let paymentComponentViewModel = PaymentComponentViewModel(paymentProvider: selectedPaymentProvider, giniHealthConfiguration: giniHealthConfiguration)
         paymentComponentViewModel.delegate = viewDelegate
         paymentComponentViewModel.documentId = documentId
         paymentComponentView.viewModel = paymentComponentViewModel
@@ -174,14 +146,12 @@ public final class PaymentComponentsController: NSObject {
     }
 
     public func bankSelectionBottomSheet() -> UIViewController {
-        let paymentProvidersBottomView = BanksBottomView()
         let paymentProvidersBottomViewModel = BanksBottomViewModel(paymentProviders: paymentProviders,
                                                                    selectedPaymentProvider: selectedPaymentProvider)
+        let paymentProvidersBottomView = BanksBottomView(viewModel: paymentProvidersBottomViewModel)
         paymentProvidersBottomViewModel.viewDelegate = self
         paymentProvidersBottomView.viewModel = paymentProvidersBottomViewModel
-        let bankSelectionBottomSheet = BankSelectionBottomSheet()
-        bankSelectionBottomSheet.bottomSheet = paymentProvidersBottomView
-        return bankSelectionBottomSheet
+        return paymentProvidersBottomView
     }
     
     public func loadPaymentReviewScreenFor(documentID: String, trackingDelegate: GiniHealthTrackingDelegate?, completion: @escaping (UIViewController?, GiniHealthError?) -> Void) {
@@ -194,9 +164,13 @@ public final class PaymentComponentsController: NSObject {
                     completion(nil, nil)
                     return
                 }
-                let vc = PaymentReviewViewController.instantiate(with: self.giniHealth, 
+                guard let selectedPaymentProvider else {
+                    completion(nil, nil)
+                    return
+                }
+                let vc = PaymentReviewViewController.instantiate(with: self.giniHealth,
                                                                  data: data,
-                                                                 selectedPaymentProvider: self.selectedPaymentProvider, 
+                                                                 selectedPaymentProvider: selectedPaymentProvider,
                                                                  trackingDelegate: trackingDelegate)
                 completion(vc, nil)
             case .failure(let error):
@@ -237,6 +211,10 @@ extension PaymentComponentsController: PaymentProvidersBottomViewProtocol {
     public func didTapOnClose() {
         bottomViewDelegate?.didTapOnClose()
     }
+    
+    public func didTapOnMoreInformation() {
+        viewDelegate?.didTapOnMoreInformation()
+    }
 }
 
 extension PaymentComponentsController {
@@ -244,4 +222,3 @@ extension PaymentComponentsController {
         static let kDefaultPaymentProvider = "defaultPaymentProvider"
     }
 }
-
