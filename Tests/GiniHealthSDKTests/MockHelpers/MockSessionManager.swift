@@ -51,7 +51,7 @@ final class MockSessionManager: SessionManagerProtocol {
     func logOut() {
         // This method will remain empty; no implementation is needed.
     }
-    
+    // swiftlint:disable function_body_length
     func data<T>(resource: T,
                  cancellationToken: GiniHealthAPILibrary.CancellationToken?,
                  completion: @escaping GiniHealthAPILibrary.CompletionResult<T.ResponseType>) where T: GiniHealthAPILibrary.Resource {
@@ -252,7 +252,7 @@ final class MockSessionManager: SessionManagerProtocol {
             }
         }
     }
-
+    // swiftlint:enable function_body_length
     private func processPaymentRequest<T>(_ paymentRequestId: String,
                                           completion: (Result<T, GiniError>) -> Void) {
         let fileName: String
@@ -269,12 +269,6 @@ final class MockSessionManager: SessionManagerProtocol {
         if let paymentRequest = paymentRequest as? T {
             completion(.success(paymentRequest))
         }
-    }
-
-    /// Helper function to decode body
-    private func decodeBody(from body: Data?) -> [String]? {
-        guard let body = body else { return nil }
-        return try? JSONDecoder().decode([String].self, from: body)
     }
 
     /// Helper function to handle extraction results
